@@ -143,9 +143,6 @@
     </div>
     <div id="login-error" class="error-msg" style="display:none"></div>
     <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="doLogin()">Prihlásiť sa</button>
-    <p style="margin-top:16px;font-size:12px;color:#999;text-align:center">
-      Demo: admin/admin123 · jana/jana123 · peter/peter123
-    </p>
   </div>
 </div>
 
@@ -155,7 +152,7 @@
     <div class="logo">&#10003; Firemné Úlohy</div>
     <div class="user-info">
       <span id="header-name"></span>
-      <button class="btn btn-ghost" onclick="showAddUser()" style="font-size:12px;padding:6px 12px">+ Používateľ</button>
+      <button id="btn-manage-users" class="btn btn-ghost" onclick="showManageUsers()" style="font-size:12px;padding:6px 12px;display:none">⚙ Používatelia</button>
       <button class="btn btn-ghost" onclick="doLogout()" style="font-size:12px;padding:6px 12px">Odhlásiť</button>
     </div>
   </header>
@@ -247,6 +244,40 @@
   </div>
 </div>
 
+<!-- MANAGE USERS MODAL (len admin) -->
+<div class="modal-overlay" id="manage-modal" style="display:none" onclick="if(event.target.id==='manage-modal')this.style.display='none'">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h2>Správa používateľov</h2>
+    <div id="manage-user-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
+    <button class="btn btn-primary btn-full" onclick="showAddUser()">+ Pridať používateľa</button>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('manage-modal').style.display='none'">Zavrieť</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHANGE PASSWORD MODAL (len admin) -->
+<div class="modal-overlay" id="pw-modal" style="display:none" onclick="if(event.target.id==='pw-modal')this.style.display='none'">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h2>Zmeniť heslo</h2>
+    <input type="hidden" id="pw-user-id">
+    <p style="font-size:13px;color:#666;margin-bottom:16px">Používateľ: <strong id="pw-user-name"></strong></p>
+    <div class="form-group">
+      <label>Nové heslo</label>
+      <div style="display:flex;gap:8px">
+        <input type="password" id="pw-new" placeholder="Zadajte nové heslo" style="flex:1">
+        <button type="button" class="btn btn-ghost" onclick="togglePw('pw-new', this)" title="Zobraziť/skryť heslo" style="padding:8px 12px">👁</button>
+      </div>
+    </div>
+    <button type="button" class="btn btn-ghost" onclick="genPw()" style="font-size:12px;padding:6px 12px">🎲 Vygenerovať silné heslo</button>
+    <div id="pw-modal-error" class="error-msg" style="display:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('pw-modal').style.display='none'">Zrušiť</button>
+      <button class="btn btn-primary" onclick="savePassword()">Uložiť heslo</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let currentUser = null;
 let allTasks = [];
@@ -292,6 +323,7 @@ async function showApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('header-name').textContent = currentUser.display_name;
+  document.getElementById('btn-manage-users').style.display = currentUser.is_admin ? 'inline-block' : 'none';
   await loadUsers();
   await loadTasks();
 }
@@ -437,6 +469,77 @@ async function saveTask() {
   await loadTasks();
 }
 
+function showManageUsers() {
+  renderManageUsers();
+  document.getElementById('manage-modal').style.display = 'flex';
+}
+
+function renderManageUsers() {
+  const list = document.getElementById('manage-user-list');
+  list.innerHTML = users.map(u => `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:#f7f8fa;border-radius:8px">
+      <div>
+        <div style="font-weight:600;font-size:14px">${escHtml(u.display_name)} ${u.is_admin ? '<span class="badge badge-status-open" style="font-size:10px">admin</span>' : ''}</div>
+        <div style="font-size:12px;color:#888">${escHtml(u.username)}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost" style="font-size:12px;padding:5px 10px" onclick="showChangePw(${u.id})">🔑 Heslo</button>
+        ${u.id !== currentUser.id ? `<button class="btn btn-danger" style="font-size:12px;padding:5px 10px" onclick="removeUser(${u.id})">✕</button>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+function showChangePw(userId) {
+  const u = users.find(x => x.id === userId);
+  if (!u) return;
+  document.getElementById('pw-user-id').value = u.id;
+  document.getElementById('pw-user-name').textContent = u.display_name;
+  const inp = document.getElementById('pw-new');
+  inp.value = '';
+  inp.type = 'password';
+  document.getElementById('pw-modal-error').style.display = 'none';
+  document.getElementById('pw-modal').style.display = 'flex';
+}
+
+function togglePw(id, btn) {
+  const inp = document.getElementById(id);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+
+function genPw() {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let pw = '';
+  const arr = new Uint32Array(12);
+  crypto.getRandomValues(arr);
+  for (let i = 0; i < 12; i++) pw += chars[arr[i] % chars.length];
+  const inp = document.getElementById('pw-new');
+  inp.value = pw;
+  inp.type = 'text'; // ukáž vygenerované heslo, nech si ho admin vie odpísať
+}
+
+async function savePassword() {
+  const userId = document.getElementById('pw-user-id').value;
+  const password = document.getElementById('pw-new').value;
+  const err = document.getElementById('pw-modal-error');
+  err.style.display = 'none';
+  if (password.length < 6) {
+    err.textContent = 'Heslo musí mať aspoň 6 znakov'; err.style.display = 'block'; return;
+  }
+  const res = await api('PATCH', `/api/users/${userId}/password`, { password });
+  if (res && res.error) { err.textContent = res.error; err.style.display = 'block'; return; }
+  document.getElementById('pw-modal').style.display = 'none';
+  alert('Heslo bolo zmenené.');
+}
+
+async function removeUser(userId) {
+  if (!confirm('Naozaj vymazať tohto používateľa?')) return;
+  const res = await api('DELETE', `/api/users/${userId}`);
+  if (res && res.error) { alert(res.error); return; }
+  await loadUsers();
+  renderManageUsers();
+}
+
 function showAddUser() {
   document.getElementById('new-display-name').value = '';
   document.getElementById('new-username').value = '';
@@ -458,6 +561,7 @@ async function saveUser() {
   if (res.error) { err.textContent = res.error; err.style.display = 'block'; return; }
   document.getElementById('user-modal').style.display = 'none';
   await loadUsers();
+  if (document.getElementById('manage-modal').style.display === 'flex') renderManageUsers();
 }
 
 function closeModal(e) {
