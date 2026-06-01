@@ -22,7 +22,8 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
-                display_name TEXT NOT NULL
+                display_name TEXT NOT NULL,
+                is_admin INTEGER DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS tasks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,18 +39,20 @@ def init_db():
                 FOREIGN KEY (created_by) REFERENCES users(id)
             );
         """)
-        # Default demo users
+        # Počiatoční používatelia (username, heslo, zobrazované meno, je_admin)
         users = [
-            ("admin", "admin123", "Administrátor"),
-            ("jana", "jana123", "Jana Nováková"),
-            ("peter", "peter123", "Peter Kováč"),
+            ("Karcsi", "PZZsQcTueGPz", "Karol Czodor", 1),
+            ("Zsani",  "AY3zpjS3Xynb", "Zsani Csomor", 0),
+            ("Ani",    "CxVYvqS9NXCT", "Anikó Szekács", 0),
+            ("Pityu",  "idLTxGm9vVbj", "Szakolci Štefan", 0),
+            ("Tibor",  "svz2G47TXPZy", "Kiss Tibor", 0),
         ]
-        for username, pw, name in users:
+        for username, pw, name, is_admin in users:
             hashed = hashlib.sha256(pw.encode()).hexdigest()
             try:
                 conn.execute(
-                    "INSERT INTO users (username, password, display_name) VALUES (?, ?, ?)",
-                    (username, hashed, name)
+                    "INSERT INTO users (username, password, display_name, is_admin) VALUES (?, ?, ?, ?)",
+                    (username, hashed, name, is_admin)
                 )
             except sqlite3.IntegrityError:
                 pass
@@ -86,7 +89,9 @@ def login():
         return jsonify({"error": "Nesprávne meno alebo heslo"}), 401
     session["user_id"] = user["id"]
     session["display_name"] = user["display_name"]
-    return jsonify({"id": user["id"], "display_name": user["display_name"], "username": user["username"]})
+    session["is_admin"] = user["is_admin"]
+    return jsonify({"id": user["id"], "display_name": user["display_name"],
+                    "username": user["username"], "is_admin": user["is_admin"]})
 
 
 @app.route("/api/logout", methods=["POST"])
@@ -99,14 +104,15 @@ def logout():
 def me():
     if "user_id" not in session:
         return jsonify(None)
-    return jsonify({"id": session["user_id"], "display_name": session["display_name"]})
+    return jsonify({"id": session["user_id"], "display_name": session["display_name"],
+                    "is_admin": session.get("is_admin", 0)})
 
 
 @app.route("/api/users")
 @require_login
 def users():
     with get_db() as conn:
-        rows = conn.execute("SELECT id, display_name, username FROM users ORDER BY display_name").fetchall()
+        rows = conn.execute("SELECT id, display_name, username, is_admin FROM users ORDER BY display_name").fetchall()
     return jsonify([dict(r) for r in rows])
 
 
@@ -203,19 +209,64 @@ def delete_task(task_id):
     return jsonify({"ok": True})
 
 
+def require_admin(f):
+    from functools import wraps
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if "user_id" not in session:
+            return jsonify({"error": "Nie ste prihlásený"}), 401
+        if not session.get("is_admin"):
+            return jsonify({"error": "Len administrátor môže vykonať túto akciu"}), 403
+        return f(*args, **kwargs)
+    return wrapper
+
+
 @app.route("/api/users", methods=["POST"])
-@require_login
+@require_admin
 def add_user():
     data = request.json
+    is_admin = 1 if data.get("is_admin") else 0
     try:
         with get_db() as conn:
             conn.execute(
-                "INSERT INTO users (username, password, display_name) VALUES (?,?,?)",
-                (data["username"], hash_pw(data["password"]), data["display_name"])
+                "INSERT INTO users (username, password, display_name, is_admin) VALUES (?,?,?,?)",
+                (data["username"], hash_pw(data["password"]), data["display_name"], is_admin)
             )
         return jsonify({"ok": True}), 201
     except sqlite3.IntegrityError:
         return jsonify({"error": "Používateľ už existuje"}), 400
+
+
+@app.route("/api/users/<int:user_id>/password", methods=["PATCH"])
+@require_admin
+def change_password(user_id):
+    data = request.json
+    new_pw = (data.get("password") or "").strip()
+    if len(new_pw) < 6:
+        return jsonify({"error": "Heslo musí mať aspoň 6 znakov"}), 400
+    with get_db() as conn:
+        target = conn.execute("SELECT id FROM users WHERE id=?", (user_id,)).fetchone()
+        if not target:
+            return jsonify({"error": "Používateľ nenájdený"}), 404
+        conn.execute("UPDATE users SET password=? WHERE id=?", (hash_pw(new_pw), user_id))
+    return jsonify({"ok": True})
+
+
+@app.route("/api/users/<int:user_id>", methods=["DELETE"])
+@require_admin
+def delete_user(user_id):
+    if user_id == session["user_id"]:
+        return jsonify({"error": "Nemôžete vymazať sám seba"}), 400
+    with get_db() as conn:
+        target = conn.execute("SELECT id FROM users WHERE id=?", (user_id,)).fetchone()
+        if not target:
+            return jsonify({"error": "Používateľ nenájdený"}), 404
+        assigned = conn.execute("SELECT COUNT(*) c FROM tasks WHERE assigned_to=? OR created_by=?",
+                                (user_id, user_id)).fetchone()["c"]
+        if assigned > 0:
+            return jsonify({"error": "Používateľ má priradené úlohy, najprv ich presuňte alebo vymažte"}), 400
+        conn.execute("DELETE FROM users WHERE id=?", (user_id,))
+    return jsonify({"ok": True})
 
 
 if __name__ == "__main__":
