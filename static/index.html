@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Firemné Úlohy</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+
+  /* LOGIN */
+  #login-screen {
+    display: flex; align-items: center; justify-content: center; min-height: 100vh;
+  }
+  .login-card {
+    background: #fff; border-radius: 12px; padding: 40px; width: 360px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+  }
+  .login-card h1 { font-size: 22px; margin-bottom: 8px; color: #1a1a2e; }
+  .login-card p { color: #666; font-size: 14px; margin-bottom: 28px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #444; }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 8px;
+    font-size: 14px; transition: border-color .2s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none; border-color: #4f6ef7;
+  }
+  .form-group textarea { resize: vertical; min-height: 70px; }
+  .btn {
+    padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px;
+    font-weight: 600; cursor: pointer; transition: background .2s, transform .1s;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: #4f6ef7; color: #fff; }
+  .btn-primary:hover { background: #3a57e8; }
+  .btn-success { background: #22c55e; color: #fff; }
+  .btn-success:hover { background: #16a34a; }
+  .btn-danger { background: #ef4444; color: #fff; }
+  .btn-danger:hover { background: #dc2626; }
+  .btn-ghost { background: transparent; color: #666; border: 1.5px solid #ddd; }
+  .btn-ghost:hover { background: #f5f5f5; }
+  .btn-full { width: 100%; }
+  .error-msg { color: #ef4444; font-size: 13px; margin-top: 8px; }
+
+  /* APP */
+  #app { display: none; }
+  header {
+    background: #fff; padding: 0 28px; height: 60px; display: flex; align-items: center;
+    justify-content: space-between; box-shadow: 0 1px 4px rgba(0,0,0,0.08); position: sticky; top: 0; z-index: 100;
+  }
+  header .logo { font-size: 18px; font-weight: 700; color: #4f6ef7; }
+  header .user-info { display: flex; align-items: center; gap: 12px; }
+  header .user-info span { font-size: 14px; color: #555; }
+
+  .main { max-width: 1000px; margin: 28px auto; padding: 0 16px; }
+
+  .toolbar {
+    display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-wrap: wrap;
+  }
+  .filter-tabs { display: flex; gap: 4px; background: #fff; border-radius: 8px; padding: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .filter-tab {
+    padding: 7px 16px; border-radius: 6px; border: none; background: transparent;
+    font-size: 13px; font-weight: 600; cursor: pointer; color: #666; transition: all .2s;
+  }
+  .filter-tab.active { background: #4f6ef7; color: #fff; }
+
+  .task-list { display: flex; flex-direction: column; gap: 12px; }
+
+  .task-card {
+    background: #fff; border-radius: 10px; padding: 16px 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07); border-left: 4px solid #ddd;
+    transition: box-shadow .2s;
+  }
+  .task-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+  .task-card.priority-high { border-left-color: #ef4444; }
+  .task-card.priority-medium { border-left-color: #f59e0b; }
+  .task-card.priority-low { border-left-color: #22c55e; }
+  .task-card.status-done { opacity: 0.6; }
+
+  .task-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .task-title { font-size: 15px; font-weight: 600; flex: 1; }
+  .task-title.done { text-decoration: line-through; color: #999; }
+  .task-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .task-actions button { padding: 5px 10px; font-size: 12px; }
+
+  .task-meta { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  }
+  .badge-priority-high { background: #fee2e2; color: #b91c1c; }
+  .badge-priority-medium { background: #fef3c7; color: #92400e; }
+  .badge-priority-low { background: #dcfce7; color: #166534; }
+  .badge-status-open { background: #e0e7ff; color: #3730a3; }
+  .badge-status-in_progress { background: #fef3c7; color: #92400e; }
+  .badge-status-done { background: #dcfce7; color: #166534; }
+  .badge-user { background: #f0f2f5; color: #555; }
+  .badge-deadline { background: #f0f2f5; color: #555; }
+  .badge-deadline.overdue { background: #fee2e2; color: #b91c1c; }
+
+  .task-desc { margin-top: 8px; font-size: 13px; color: #666; line-height: 1.5; }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: #999; }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: center; z-index: 200; padding: 16px;
+  }
+  .modal {
+    background: #fff; border-radius: 12px; padding: 28px; width: 100%; max-width: 480px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto;
+  }
+  .modal h2 { font-size: 18px; margin-bottom: 20px; }
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .stat-card { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+  .stat-card .num { font-size: 28px; font-weight: 700; color: #4f6ef7; }
+  .stat-card .lbl { font-size: 12px; color: #888; margin-top: 4px; }
+
+  /* USER MODAL */
+  #user-modal { display: none; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <h1>Firemné Úlohy</h1>
+    <p>Prihláste sa pre pokračovanie</p>
+    <div class="form-group">
+      <label>Používateľské meno</label>
+      <input type="text" id="login-username" placeholder="napr. jana">
+    </div>
+    <div class="form-group">
+      <label>Heslo</label>
+      <input type="password" id="login-password" placeholder="••••••">
+    </div>
+    <div id="login-error" class="error-msg" style="display:none"></div>
+    <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="doLogin()">Prihlásiť sa</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header>
+    <div class="logo">&#10003; Firemné Úlohy</div>
+    <div class="user-info">
+      <span id="header-name"></span>
+      <button id="btn-manage-users" class="btn btn-ghost" onclick="showManageUsers()" style="font-size:12px;padding:6px 12px;display:none">⚙ Používatelia</button>
+      <button class="btn btn-ghost" onclick="doLogout()" style="font-size:12px;padding:6px 12px">Odhlásiť</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="stats">
+      <div class="stat-card"><div class="num" id="stat-all">0</div><div class="lbl">Všetky úlohy</div></div>
+      <div class="stat-card"><div class="num" id="stat-open">0</div><div class="lbl">Otvorené</div></div>
+      <div class="stat-card"><div class="num" id="stat-progress">0</div><div class="lbl">V riešení</div></div>
+      <div class="stat-card"><div class="num" id="stat-done">0</div><div class="lbl">Hotové</div></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="all" onclick="setFilter('all',this)">Všetky</button>
+        <button class="filter-tab" data-filter="mine" onclick="setFilter('mine',this)">Pre mňa</button>
+        <button class="filter-tab" data-filter="created" onclick="setFilter('created',this)">Moje zadané</button>
+      </div>
+      <div style="flex:1"></div>
+      <button class="btn btn-primary" onclick="showNewTask()">+ Nová úloha</button>
+    </div>
+
+    <div class="task-list" id="task-list">
+      <div class="empty-state"><div class="icon">📋</div>Žiadne úlohy</div>
+    </div>
+  </div>
+</div>
+
+<!-- NEW/EDIT TASK MODAL -->
+<div class="modal-overlay" id="task-modal" style="display:none" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h2 id="modal-title">Nová úloha</h2>
+    <input type="hidden" id="edit-task-id">
+    <div class="form-group">
+      <label>Názov úlohy *</label>
+      <input type="text" id="task-title" placeholder="Čo treba urobiť?">
+    </div>
+    <div class="form-group">
+      <label>Popis</label>
+      <textarea id="task-desc" placeholder="Podrobnosti, poznámky..."></textarea>
+    </div>
+    <div class="form-group">
+      <label>Priradiť komu *</label>
+      <select id="task-assigned"></select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group">
+        <label>Priorita</label>
+        <select id="task-priority">
+          <option value="low">Nízka</option>
+          <option value="medium" selected>Stredná</option>
+          <option value="high">Vysoká</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Termín</label>
+        <input type="date" id="task-deadline">
+      </div>
+    </div>
+    <div id="task-modal-error" class="error-msg" style="display:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('task-modal').style.display='none'">Zrušiť</button>
+      <button class="btn btn-primary" onclick="saveTask()">Uložiť</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD USER MODAL -->
+<div class="modal-overlay" id="user-modal" style="display:none" onclick="closeUserModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h2>Pridať používateľa</h2>
+    <div class="form-group">
+      <label>Meno (zobrazované)</label>
+      <input type="text" id="new-display-name" placeholder="Jana Nováková">
+    </div>
+    <div class="form-group">
+      <label>Prihlasovacie meno</label>
+      <input type="text" id="new-username" placeholder="jana">
+    </div>
+    <div class="form-group">
+      <label>Heslo</label>
+      <input type="password" id="new-password" placeholder="••••••">
+    </div>
+    <div id="user-modal-error" class="error-msg" style="display:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('user-modal').style.display='none'">Zrušiť</button>
+      <button class="btn btn-primary" onclick="saveUser()">Pridať</button>
+    </div>
+  </div>
+</div>
+
+<!-- MANAGE USERS MODAL (len admin) -->
+<div class="modal-overlay" id="manage-modal" style="display:none" onclick="if(event.target.id==='manage-modal')this.style.display='none'">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h2>Správa používateľov</h2>
+    <div id="manage-user-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
+    <button class="btn btn-primary btn-full" onclick="showAddUser()">+ Pridať používateľa</button>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('manage-modal').style.display='none'">Zavrieť</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHANGE PASSWORD MODAL (len admin) -->
+<div class="modal-overlay" id="pw-modal" style="display:none" onclick="if(event.target.id==='pw-modal')this.style.display='none'">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h2>Zmeniť heslo</h2>
+    <input type="hidden" id="pw-user-id">
+    <p style="font-size:13px;color:#666;margin-bottom:16px">Používateľ: <strong id="pw-user-name"></strong></p>
+    <div class="form-group">
+      <label>Nové heslo</label>
+      <div style="display:flex;gap:8px">
+        <input type="password" id="pw-new" placeholder="Zadajte nové heslo" style="flex:1">
+        <button type="button" class="btn btn-ghost" onclick="togglePw('pw-new', this)" title="Zobraziť/skryť heslo" style="padding:8px 12px">👁</button>
+      </div>
+    </div>
+    <button type="button" class="btn btn-ghost" onclick="genPw()" style="font-size:12px;padding:6px 12px">🎲 Vygenerovať silné heslo</button>
+    <div id="pw-modal-error" class="error-msg" style="display:none"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('pw-modal').style.display='none'">Zrušiť</button>
+      <button class="btn btn-primary" onclick="savePassword()">Uložiť heslo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentUser = null;
+let allTasks = [];
+let currentFilter = 'all';
+let users = [];
+
+const PRIORITY_LABEL = { high: 'Vysoká', medium: 'Stredná', low: 'Nízka' };
+const STATUS_LABEL = { open: 'Otvorené', in_progress: 'V riešení', done: 'Hotové' };
+
+async function api(method, url, body) {
+  const res = await fetch(url, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  return res.json();
+}
+
+async function doLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  const err = document.getElementById('login-error');
+  err.style.display = 'none';
+  const res = await api('POST', '/api/login', { username, password });
+  if (res.error) { err.textContent = res.error; err.style.display = 'block'; return; }
+  currentUser = res;
+  showApp();
+}
+
+document.getElementById('login-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+async function doLogout() {
+  await api('POST', '/api/logout');
+  currentUser = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-password').value = '';
+}
+
+async function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('header-name').textContent = currentUser.display_name;
+  document.getElementById('btn-manage-users').style.display = currentUser.is_admin ? 'inline-block' : 'none';
+  await loadUsers();
+  await loadTasks();
+}
+
+async function loadUsers() {
+  users = await api('GET', '/api/users');
+}
+
+async function loadTasks() {
+  allTasks = await api('GET', `/api/tasks?filter=${currentFilter}`);
+  renderTasks();
+  updateStats();
+}
+
+function updateStats() {
+  const tasks = allTasks;
+  document.getElementById('stat-all').textContent = tasks.length;
+  document.getElementById('stat-open').textContent = tasks.filter(t => t.status === 'open').length;
+  document.getElementById('stat-progress').textContent = tasks.filter(t => t.status === 'in_progress').length;
+  document.getElementById('stat-done').textContent = tasks.filter(t => t.status === 'done').length;
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadTasks();
+}
+
+function isOverdue(deadline) {
+  if (!deadline) return false;
+  return new Date(deadline) < new Date(new Date().toDateString());
+}
+
+function formatDate(d) {
+  if (!d) return null;
+  const [y, m, day] = d.split('-');
+  return `${day}.${m}.${y}`;
+}
+
+function renderTasks() {
+  const list = document.getElementById('task-list');
+  if (!allTasks.length) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">📋</div>Žiadne úlohy</div>';
+    return;
+  }
+  list.innerHTML = allTasks.map(t => {
+    const overdue = isOverdue(t.deadline) && t.status !== 'done';
+    const canEdit = t.assigned_to == currentUser.id || t.created_by == currentUser.id;
+    const canDelete = t.created_by == currentUser.id;
+    return `
+    <div class="task-card priority-${t.priority} status-${t.status}">
+      <div class="task-header">
+        <div class="task-title ${t.status === 'done' ? 'done' : ''}">${escHtml(t.title)}</div>
+        <div class="task-actions">
+          ${canEdit && t.status !== 'done' ? `<button class="btn btn-success" onclick="markStatus(${t.id},'done')">✓ Hotové</button>` : ''}
+          ${canEdit && t.status === 'open' ? `<button class="btn btn-ghost" onclick="markStatus(${t.id},'in_progress')">▶ Riešim</button>` : ''}
+          ${canEdit && t.status === 'done' ? `<button class="btn btn-ghost" onclick="markStatus(${t.id},'open')">↩ Znovu</button>` : ''}
+          ${canEdit ? `<button class="btn btn-ghost" onclick="editTask(${t.id})">✏</button>` : ''}
+          ${canDelete ? `<button class="btn btn-danger" onclick="deleteTask(${t.id})">✕</button>` : ''}
+        </div>
+      </div>
+      <div class="task-meta">
+        <span class="badge badge-priority-${t.priority}">${PRIORITY_LABEL[t.priority]}</span>
+        <span class="badge badge-status-${t.status}">${STATUS_LABEL[t.status]}</span>
+        <span class="badge badge-user">👤 ${escHtml(t.assigned_name)}</span>
+        <span class="badge badge-user" style="background:#f0f0ff;color:#666">od: ${escHtml(t.creator_name)}</span>
+        ${t.deadline ? `<span class="badge badge-deadline ${overdue ? 'overdue' : ''}">📅 ${formatDate(t.deadline)}${overdue ? ' – po termíne!' : ''}</span>` : ''}
+      </div>
+      ${t.description ? `<div class="task-desc">${escHtml(t.description)}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function markStatus(id, status) {
+  await api('PATCH', `/api/tasks/${id}`, { status });
+  await loadTasks();
+}
+
+async function deleteTask(id) {
+  if (!confirm('Naozaj vymazať túto úlohu?')) return;
+  await api('DELETE', `/api/tasks/${id}`);
+  await loadTasks();
+}
+
+function populateAssigned() {
+  const sel = document.getElementById('task-assigned');
+  sel.innerHTML = users.map(u => `<option value="${u.id}">${escHtml(u.display_name)}</option>`).join('');
+  sel.value = currentUser.id;
+}
+
+function showNewTask() {
+  document.getElementById('edit-task-id').value = '';
+  document.getElementById('modal-title').textContent = 'Nová úloha';
+  document.getElementById('task-title').value = '';
+  document.getElementById('task-desc').value = '';
+  document.getElementById('task-priority').value = 'medium';
+  document.getElementById('task-deadline').value = '';
+  document.getElementById('task-modal-error').style.display = 'none';
+  populateAssigned();
+  document.getElementById('task-modal').style.display = 'flex';
+}
+
+function editTask(id) {
+  const t = allTasks.find(x => x.id === id);
+  if (!t) return;
+  document.getElementById('edit-task-id').value = t.id;
+  document.getElementById('modal-title').textContent = 'Upraviť úlohu';
+  document.getElementById('task-title').value = t.title;
+  document.getElementById('task-desc').value = t.description || '';
+  document.getElementById('task-priority').value = t.priority;
+  document.getElementById('task-deadline').value = t.deadline || '';
+  document.getElementById('task-modal-error').style.display = 'none';
+  populateAssigned();
+  document.getElementById('task-assigned').value = t.assigned_to;
+  document.getElementById('task-modal').style.display = 'flex';
+}
+
+async function saveTask() {
+  const title = document.getElementById('task-title').value.trim();
+  const assigned_to = parseInt(document.getElementById('task-assigned').value);
+  const err = document.getElementById('task-modal-error');
+  err.style.display = 'none';
+  if (!title) { err.textContent = 'Zadajte názov úlohy'; err.style.display = 'block'; return; }
+  const data = {
+    title,
+    description: document.getElementById('task-desc').value.trim(),
+    assigned_to,
+    priority: document.getElementById('task-priority').value,
+    deadline: document.getElementById('task-deadline').value || null
+  };
+  const editId = document.getElementById('edit-task-id').value;
+  if (editId) {
+    await api('PATCH', `/api/tasks/${editId}`, data);
+  } else {
+    await api('POST', '/api/tasks', data);
+  }
+  document.getElementById('task-modal').style.display = 'none';
+  await loadTasks();
+}
+
+function showManageUsers() {
+  renderManageUsers();
+  document.getElementById('manage-modal').style.display = 'flex';
+}
+
+function renderManageUsers() {
+  const list = document.getElementById('manage-user-list');
+  list.innerHTML = users.map(u => `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:#f7f8fa;border-radius:8px">
+      <div>
+        <div style="font-weight:600;font-size:14px">${escHtml(u.display_name)} ${u.is_admin ? '<span class="badge badge-status-open" style="font-size:10px">admin</span>' : ''}</div>
+        <div style="font-size:12px;color:#888">${escHtml(u.username)}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost" style="font-size:12px;padding:5px 10px" onclick="showChangePw(${u.id})">🔑 Heslo</button>
+        ${u.id !== currentUser.id ? `<button class="btn btn-danger" style="font-size:12px;padding:5px 10px" onclick="removeUser(${u.id})">✕</button>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+function showChangePw(userId) {
+  const u = users.find(x => x.id === userId);
+  if (!u) return;
+  document.getElementById('pw-user-id').value = u.id;
+  document.getElementById('pw-user-name').textContent = u.display_name;
+  const inp = document.getElementById('pw-new');
+  inp.value = '';
+  inp.type = 'password';
+  document.getElementById('pw-modal-error').style.display = 'none';
+  document.getElementById('pw-modal').style.display = 'flex';
+}
+
+function togglePw(id, btn) {
+  const inp = document.getElementById(id);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+
+function genPw() {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let pw = '';
+  const arr = new Uint32Array(12);
+  crypto.getRandomValues(arr);
+  for (let i = 0; i < 12; i++) pw += chars[arr[i] % chars.length];
+  const inp = document.getElementById('pw-new');
+  inp.value = pw;
+  inp.type = 'text'; // ukáž vygenerované heslo, nech si ho admin vie odpísať
+}
+
+async function savePassword() {
+  const userId = document.getElementById('pw-user-id').value;
+  const password = document.getElementById('pw-new').value;
+  const err = document.getElementById('pw-modal-error');
+  err.style.display = 'none';
+  if (password.length < 6) {
+    err.textContent = 'Heslo musí mať aspoň 6 znakov'; err.style.display = 'block'; return;
+  }
+  const res = await api('PATCH', `/api/users/${userId}/password`, { password });
+  if (res && res.error) { err.textContent = res.error; err.style.display = 'block'; return; }
+  document.getElementById('pw-modal').style.display = 'none';
+  alert('Heslo bolo zmenené.');
+}
+
+async function removeUser(userId) {
+  if (!confirm('Naozaj vymazať tohto používateľa?')) return;
+  const res = await api('DELETE', `/api/users/${userId}`);
+  if (res && res.error) { alert(res.error); return; }
+  await loadUsers();
+  renderManageUsers();
+}
+
+function showAddUser() {
+  document.getElementById('new-display-name').value = '';
+  document.getElementById('new-username').value = '';
+  document.getElementById('new-password').value = '';
+  document.getElementById('user-modal-error').style.display = 'none';
+  document.getElementById('user-modal').style.display = 'flex';
+}
+
+async function saveUser() {
+  const display_name = document.getElementById('new-display-name').value.trim();
+  const username = document.getElementById('new-username').value.trim();
+  const password = document.getElementById('new-password').value;
+  const err = document.getElementById('user-modal-error');
+  err.style.display = 'none';
+  if (!display_name || !username || !password) {
+    err.textContent = 'Vyplňte všetky polia'; err.style.display = 'block'; return;
+  }
+  const res = await api('POST', '/api/users', { display_name, username, password });
+  if (res.error) { err.textContent = res.error; err.style.display = 'block'; return; }
+  document.getElementById('user-modal').style.display = 'none';
+  await loadUsers();
+  if (document.getElementById('manage-modal').style.display === 'flex') renderManageUsers();
+}
+
+function closeModal(e) {
+  if (e.target.id === 'task-modal') document.getElementById('task-modal').style.display = 'none';
+}
+function closeUserModal(e) {
+  if (e.target.id === 'user-modal') document.getElementById('user-modal').style.display = 'none';
+}
+
+// Check if already logged in
+(async () => {
+  const me = await api('GET', '/api/me');
+  if (me) { currentUser = me; showApp(); }
+})();
+</script>
+</body>
+</html>
